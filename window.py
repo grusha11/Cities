@@ -6,12 +6,12 @@ from PIL import ImageTk, Image
 from icrawler.builtin import GoogleImageCrawler
 from geopy import *
 
+import sqlite3
 import time
 import os
 import psw_check
 import datetime
 import requests
-import data
 import wikipedia
 
 open_weather_token = 'a9baa1b5867ce5d367c2caf502acc11b'
@@ -29,6 +29,16 @@ password_reg = StringVar()
 registr1 = StringVar()
 enter_city = StringVar()
 
+#-------------------
+database = sqlite3.connect('database.db')
+cursor = database.cursor()
+
+cursor.execute('''CREATE TABLE IF NOT EXISTS users ( 
+        login TEXT, 
+        password TEXT
+    )''')
+database.commit()
+#-------------------
 
 def parsing_photo(city):
     if os.path.exists('C:/Users/www/PycharmProjects/pythonProject1/my_projects/photos/000001.jpg'):
@@ -234,21 +244,43 @@ def welcome():  # функция определяет время суток дл
         return 'Good afternoon'
     else:
         return 'Good evening'
+def check_fetch_lgn(lgn):
+    cursor.execute(f'SELECT login, password FROM users WHERE login = "{lgn}"')
+    try:
+        print(cursor.fetchone()[0])
+
+        return True
+    except:
+        return False
+
+def check_fetch_psw(lgn, psw):
+    cursor.execute(f'SELECT login, password FROM users WHERE login = "{lgn}"')
+    try:
+        var = cursor.fetchone()[1]
+        print(var)
+        if psw == var:
+            return True
+        else:
+            return False
+    except:
+        return False
+
 def authorization(event):  # выполняется при нажатии ОК главного root
     lgn = login.get()  # забирает значение с ввода в Entry()
     psw = password1.get()
     print(lgn)
     print(psw)
 
+    cursor.execute(f'SELECT login, password FROM users WHERE login = "{lgn}"')
     if lgn == '' and psw == '':
         messagebox.showwarning('Авторизация', 'Данные не введены')
     elif lgn != '' and psw == '':
         messagebox.showwarning('Авторизация', 'Пароль не введен')
-    elif lgn in data.database and psw not in data.database[lgn]:
-        messagebox.showwarning('Авторизация', 'Неверный пароль')
-    elif lgn != '' and psw != '' and lgn not in data.database:
+    elif lgn != '' and psw != '' and check_fetch_lgn(lgn) is False:
         messagebox.showwarning('Авторизация', 'Пользователя не существует')
-    elif lgn in data.database and psw in data.database[lgn]:
+    elif check_fetch_lgn(lgn) is True and check_fetch_psw(lgn, psw) is False:
+        messagebox.showwarning('Авторизация', 'Неверный пароль')
+    else:
         open_main_programm()
 def registration_failed(text):
     root4 = Toplevel(root2)
@@ -264,7 +296,7 @@ def registr(event):  # это работает!!! Получаем значен�
     registr_get = registr1.get()
     new_password = password_reg.get()
 
-    def legit_password(new_password):
+    def legit_password(new_password, registr_get):
         if psw_check.check_len(new_password) == False:
             registration_failed('Длина пароля должная быть от 12 до 16 символов')
         elif psw_check.check_numbers(new_password) == False:
@@ -276,9 +308,14 @@ def registr(event):  # это работает!!! Получаем значен�
                 'Пароль может содержать только заглавные и строчные буквы латинского алфавита, цифры и знак нижнего подчеркивания')
         elif all([psw_check.check_len(new_password), psw_check.check_numbers(new_password),
                   psw_check.check_upper_lower(new_password), psw_check.check_other_symbols(new_password)]):
-            data.db_check_pasw(registr_get, new_password)
 
-    legit_password(new_password)
+            cursor.execute(f'SELECT login, password FROM users WHERE login = "{registr_get}"')
+            if cursor.fetchone() is None:
+                cursor.execute('INSERT INTO users VALUES (?, ?)', (registr_get, new_password))
+                database.commit()
+                print('aaa')
+
+    legit_password(new_password, registr_get)
     # print(registr_get, new_password)
 
 
